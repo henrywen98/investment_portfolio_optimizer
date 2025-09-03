@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+env/
+.conda/
+
+# macOS
+.DS_Store
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# Data outputs
+/data/*.csv
+/data/*.json
+
+# Cache
+*.cache/
+**/.ipynb_checkpoints/
