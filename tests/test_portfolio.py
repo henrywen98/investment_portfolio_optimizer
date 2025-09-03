@@ -1,8 +1,9 @@
 import math
 import pandas as pd
 import numpy as np
+import pytest
 
-from portfolio import compute_max_sharpe
+from portfolio import compute_max_sharpe, get_valid_trade_range
 
 
 def make_prices(days=200, assets=3, seed=42):
@@ -31,3 +32,19 @@ def test_compute_max_sharpe_basic():
 def test_compute_max_sharpe_raises_on_empty():
     with np.testing.assert_raises(ValueError):
         compute_max_sharpe(pd.DataFrame(), rf=0.01, max_weight=0.8)
+
+
+def test_get_valid_trade_range_cn():
+    """测试中国市场交易日获取"""
+    start_date, end_date = get_valid_trade_range("2023-01-01", "2023-01-10", "XSHG")
+    assert isinstance(start_date, str)
+    assert isinstance(end_date, str)
+    assert start_date <= end_date
+
+
+def test_get_valid_trade_range_us():
+    """测试美国市场交易日获取"""
+    start_date, end_date = get_valid_trade_range("2023-01-01", "2023-01-10", "NYSE")
+    assert isinstance(start_date, str)
+    assert isinstance(end_date, str)
+    assert start_date <= end_date

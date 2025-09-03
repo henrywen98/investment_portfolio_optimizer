@@ -11,13 +11,23 @@ from pypfopt.expected_returns import mean_historical_return
 from pypfopt.risk_models import CovarianceShrinkage
 
 
-DEFAULT_TICKERS = [
+DEFAULT_TICKERS_CN = [
     "600519", "000858", "600887", "002594", "000333",
     "601888", "000063", "002230", "600941", "600036",
     "601318", "600028", "601012", "600438", "600031",
     "600585", "600019", "600276", "601899", "002352",
     "601766", "600030", "600406", "601668", "002714",
 ]
+
+DEFAULT_TICKERS_US = [
+    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
+    "TSLA", "META", "BRK-B", "V", "JNJ",
+    "UNH", "XOM", "WMT", "LLY", "PG",
+    "MA", "JPM", "HD", "CVX", "MRK",
+    "ABBV", "KO", "AVGO", "PEP", "PFE",
+]
+
+DEFAULT_TICKERS = DEFAULT_TICKERS_CN
 
 
 def _setup_logger(verbose: bool = True) -> None:
@@ -33,25 +43,49 @@ def get_valid_trade_range(start_date: str, end_date: str, exchange: str = "XSHG"
     """Clamp the input date range to actual trading days of the given exchange.
 
     Returns (start_date, end_date) in YYYY-MM-DD.
+    
+    Supported exchanges:
+    - XSHG: Shanghai Stock Exchange (China A-shares)
+    - NYSE: New York Stock Exchange (US stocks)
+    - NASDAQ: NASDAQ (US stocks)
     """
     # Lazy import to avoid unnecessary dependency at import time
     import pandas_market_calendars as mcal  # type: ignore
     cal = mcal.get_calendar(exchange)
     schedule = cal.schedule(start_date=start_date, end_date=end_date)
     if schedule.empty:
-        raise ValueError("未找到有效的交易日，请检查时间范围或交易所日历！")
+        raise ValueError(f"未找到有效的交易日，请检查时间范围或交易所日历！Exchange: {exchange}")
     start = schedule.index[0].strftime("%Y-%m-%d")
     end = schedule.index[-1].strftime("%Y-%m-%d")
     return start, end
 
 
-def fetch_prices(tickers: Iterable[str], start_date: str, end_date: str, adjust: str = "hfq") -> pd.DataFrame:
-    """Download A-share price data via akshare and return close price DataFrame.
+def fetch_prices(tickers: Iterable[str], start_date: str, end_date: str, market: str = "CN", adjust: str = "hfq") -> pd.DataFrame:
+    """Download stock price data and return close price DataFrame.
 
-    Index: DatetimeIndex
-    Columns: tickers
-    Values: close prices (float)
+    Args:
+        tickers: Stock symbols
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        market: Market type, "CN" for China A-shares or "US" for US stocks
+        adjust: Adjustment method for CN stocks ("hfq", "qfq", "")
+
+    Returns:
+        DataFrame with:
+        Index: DatetimeIndex
+        Columns: tickers
+        Values: close prices (float)
     """
+    if market.upper() == "CN":
+        return _fetch_cn_prices(tickers, start_date, end_date, adjust)
+    elif market.upper() == "US":
+        return _fetch_us_prices(tickers, start_date, end_date)
+    else:
+        raise ValueError(f"Unsupported market: {market}. Use 'CN' or 'US'.")
+
+
+def _fetch_cn_prices(tickers: Iterable[str], start_date: str, end_date: str, adjust: str = "hfq") -> pd.DataFrame:
+    """Download A-share price data via akshare and return close price DataFrame."""
     data = pd.DataFrame()
     # Lazy import to avoid heavy dependency at import time
     try:
@@ -74,6 +108,31 @@ def fetch_prices(tickers: Iterable[str], start_date: str, end_date: str, adjust:
             df["日期"] = pd.to_datetime(df["日期"])  # type: ignore[index]
             df.set_index("日期", inplace=True)
             close_series = df["收盘"].astype(float)
+            close_series.name = ticker
+            data = pd.concat([data, close_series], axis=1)
+            logging.info(f"已下载 {ticker} 的收盘价，共 {close_series.shape[0]} 行")
+        except Exception as e:  # noqa: BLE001
+            logging.error(f"下载 {ticker} 失败: {e}")
+    return data.sort_index()
+
+
+def _fetch_us_prices(tickers: Iterable[str], start_date: str, end_date: str) -> pd.DataFrame:
+    """Download US stock price data via yfinance and return close price DataFrame."""
+    data = pd.DataFrame()
+    # Lazy import to avoid heavy dependency at import time
+    try:
+        import yfinance as yf  # type: ignore
+    except Exception as e:  # noqa: BLE001
+        raise ImportError("需要安装 yfinance 才能下载美股数据：pip install yfinance") from e
+
+    for ticker in tickers:
+        try:
+            stock = yf.Ticker(ticker)
+            df = stock.history(start=start_date, end=end_date, auto_adjust=True)
+            if df is None or df.empty:
+                logging.warning(f"{ticker}: 无数据返回，已跳过")
+                continue
+            close_series = df["Close"].astype(float)
             close_series.name = ticker
             data = pd.concat([data, close_series], axis=1)
             logging.info(f"已下载 {ticker} 的收盘价，共 {close_series.shape[0]} 行")
@@ -153,12 +212,19 @@ def save_outputs(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Max Sharpe Portfolio for China A-shares")
+    parser = argparse.ArgumentParser(description="Max Sharpe Portfolio for China A-shares and US stocks")
+    parser.add_argument(
+        "--market",
+        type=str,
+        choices=["CN", "US"],
+        default="CN",
+        help="市场选择：CN（中国A股）或 US（美股），默认CN",
+    )
     parser.add_argument(
         "--tickers",
         type=str,
-        default=",".join(DEFAULT_TICKERS),
-        help="股票代码（逗号分隔），默认内置一组样例",
+        default=None,
+        help="股票代码（逗号分隔），不指定则使用对应市场的默认股票池",
     )
     parser.add_argument(
         "--years",
@@ -179,6 +245,15 @@ def main() -> None:
     args = parse_args()
     _setup_logger(verbose=not args.quiet)
 
+    # 市场和交易所设置
+    market = args.market.upper()
+    if market == "CN":
+        exchange = "XSHG"
+        default_tickers = DEFAULT_TICKERS_CN
+    else:  # US
+        exchange = "NYSE"
+        default_tickers = DEFAULT_TICKERS_US
+
     # 日期处理
     if args.start_date and args.end_date:
         start_raw, end_raw = args.start_date, args.end_date
@@ -187,15 +262,18 @@ def main() -> None:
         start_raw = (datetime.datetime.today() - datetime.timedelta(days=365 * args.years)).strftime(
             "%Y-%m-%d"
         )
-    start_date, end_date = get_valid_trade_range(start_raw, end_raw)
-    logging.info(f"计算区间：{start_date} -> {end_date}")
+    start_date, end_date = get_valid_trade_range(start_raw, end_raw, exchange)
+    logging.info(f"计算区间：{start_date} -> {end_date} ({market}市场)")
 
     # 股票列表
-    tickers = [t.strip() for t in args.tickers.split(",") if t.strip()]
+    if args.tickers:
+        tickers = [t.strip() for t in args.tickers.split(",") if t.strip()]
+    else:
+        tickers = default_tickers
     logging.info(f"股票数量：{len(tickers)} — {tickers}")
 
     # 下载数据并计算
-    prices = fetch_prices(tickers, start_date, end_date)
+    prices = fetch_prices(tickers, start_date, end_date, market=market)
     if prices.empty:
         raise ValueError("未能获取任何股票价格数据，请检查网络、股票代码或时间范围！")
 
