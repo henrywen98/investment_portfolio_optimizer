@@ -23,8 +23,6 @@ try:
     # 向后兼容的导入
     from maxsharpe.core import compute_max_sharpe, fetch_prices
     
-    USE_NEW_MODULES = True
-    
 except ImportError:
     # 如果新模块不可用，使用原有实现作为后备
     logging.warning("使用旧版本实现，建议使用模块化版本")
@@ -33,8 +31,6 @@ except ImportError:
     from pypfopt.efficient_frontier import EfficientFrontier
     from pypfopt.expected_returns import mean_historical_return
     from pypfopt.risk_models import CovarianceShrinkage
-
-    USE_NEW_MODULES = False
 
     # 保留原有的常量定义
     DEFAULT_TICKERS_CN = [
@@ -200,6 +196,117 @@ def save_outputs(
         json.dump(perf_payload, f, ensure_ascii=False, indent=2)
 
     return prices_csv, weights_csv, performance_json
+                end_date=end_date.replace("-", ""),
+                adjust=adjust,
+            )
+            if df is None or df.empty:
+                logging.warning(f"{ticker}: 无数据返回，已跳过")
+                continue
+            # akshare 中文列名：日期、收盘
+            df["日期"] = pd.to_datetime(df["日期"])  # type: ignore[index]
+            df.set_index("日期", inplace=True)
+            close_series = df["收盘"].astype(float)
+            close_series.name = ticker
+            data = pd.concat([data, close_series], axis=1)
+            logging.info(f"已下载 {ticker} 的收盘价，共 {close_series.shape[0]} 行")
+        except Exception as e:  # noqa: BLE001
+            logging.error(f"下载 {ticker} 失败: {e}")
+    return data.sort_index()
+
+
+def _fetch_us_prices(tickers: Iterable[str], start_date: str, end_date: str) -> pd.DataFrame:
+    """Download US stock price data via yfinance and return close price DataFrame."""
+    data = pd.DataFrame()
+    # Lazy import to avoid heavy dependency at import time
+    try:
+        import yfinance as yf  # type: ignore
+    except Exception as e:  # noqa: BLE001
+        raise ImportError("需要安装 yfinance 才能下载美股数据：pip install yfinance") from e
+
+    for ticker in tickers:
+        try:
+            stock = yf.Ticker(ticker)
+            df = stock.history(start=start_date, end=end_date, auto_adjust=True)
+            if df is None or df.empty:
+                logging.warning(f"{ticker}: 无数据返回，已跳过")
+                continue
+            close_series = df["Close"].astype(float)
+            close_series.name = ticker
+            data = pd.concat([data, close_series], axis=1)
+            logging.info(f"已下载 {ticker} 的收盘价，共 {close_series.shape[0]} 行")
+        except Exception as e:  # noqa: BLE001
+            logging.error(f"下载 {ticker} 失败: {e}")
+    return data.sort_index()
+
+
+def compute_max_sharpe(prices: pd.DataFrame, rf: float = 0.01696, max_weight: float = 0.25) -> Tuple[Dict[str, float], Tuple[float, float, float]]:
+    """Compute Max Sharpe portfolio.
+
+    Returns (weights_dict, (annual_return, annual_vol, sharpe)).
+    """
+    if prices.empty:
+        raise ValueError("价格数据为空，无法计算投资组合！")
+    if prices.isnull().mean().max() > 0.5:
+        raise ValueError("数据存在重大缺失（超过50%缺失），请检查股票或时间范围！")
+
+    mu = mean_historical_return(prices)
+    S = CovarianceShrinkage(prices).ledoit_wolf()
+
+    ef = EfficientFrontier(mu, S)
+    ef.add_constraint(lambda w: w <= max_weight)
+    ef.max_sharpe(risk_free_rate=rf)
+    weights = ef.clean_weights()
+    performance = ef.portfolio_performance(verbose=False)
+    return weights, performance
+
+
+def save_outputs(
+    prices: pd.DataFrame,
+    weights: Dict[str, float],
+    performance: Tuple[float, float, float],
+    output_dir: str,
+    start_date: str,
+    end_date: str,
+) -> Tuple[str, str, str]:
+    """Save raw prices, weights and performance to files under output_dir.
+
+    Returns (prices_csv, weights_csv, performance_json)
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    tag = f"{start_date}_{end_date}"
+
+    prices_csv = os.path.join(output_dir, f"stock_data_{tag}.csv")
+    prices.to_csv(prices_csv)
+
+    weights_df = (
+        pd.DataFrame(list(weights.items()), columns=["Ticker", "Weight"])
+        .query("Weight > 0")
+        .sort_values("Weight", ascending=False)
+    )
+    weights_csv = os.path.join(output_dir, f"weights_{tag}.csv")
+    weights_df.to_csv(weights_csv, index=False)
+
+    ann_ret, ann_vol, sharpe = performance
+    monthly_return = (1 + ann_ret) ** (1 / 12) - 1
+    monthly_volatility = ann_vol / (12 ** 0.5)
+    perf_payload = {
+        "annual": {
+            "expected_return": ann_ret,
+            "volatility": ann_vol,
+            "sharpe": sharpe,
+        },
+        "monthly": {
+            "expected_return": monthly_return,
+            "volatility": monthly_volatility,
+            "sharpe": sharpe,
+        },
+        "window": {"start": start_date, "end": end_date},
+    }
+    performance_json = os.path.join(output_dir, f"performance_{tag}.json")
+    with open(performance_json, "w", encoding="utf-8") as f:
+        json.dump(perf_payload, f, ensure_ascii=False, indent=2)
+
+    return prices_csv, weights_csv, performance_json
 
 
 def parse_args() -> argparse.Namespace:
@@ -234,99 +341,71 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    setup_logger(verbose=not args.quiet)
+    _setup_logger(verbose=not args.quiet)
 
     # 市场和交易所设置
     market = args.market.upper()
     if market == "CN":
         exchange = "XSHG"
-        default_tickers = get_default_tickers("CN")
+        default_tickers = DEFAULT_TICKERS_CN
     else:  # US
         exchange = "NYSE"
-        default_tickers = get_default_tickers("US")
+        default_tickers = DEFAULT_TICKERS_US
 
-    # 选择股票
+    # 日期处理
+    if args.start_date and args.end_date:
+        start_raw, end_raw = args.start_date, args.end_date
+    else:
+        end_raw = datetime.datetime.today().strftime("%Y-%m-%d")
+        start_raw = (datetime.datetime.today() - datetime.timedelta(days=365 * args.years)).strftime(
+            "%Y-%m-%d"
+        )
+    start_date, end_date = get_valid_trade_range(start_raw, end_raw, exchange)
+    logging.info(f"计算区间：{start_date} -> {end_date} ({market}市场)")
+
+    # 股票列表
     if args.tickers:
-        tickers = [t.strip() for t in args.tickers.split(",")]
+        tickers = [t.strip() for t in args.tickers.split(",") if t.strip()]
     else:
         tickers = default_tickers
+    logging.info(f"股票数量：{len(tickers)} — {tickers}")
 
-    # 日期设置
-    if args.start_date and args.end_date:
-        start_date, end_date = args.start_date, args.end_date
-    else:
-        end_date = datetime.datetime.now().strftime("%Y-%m-%d")
-        start_date = (datetime.datetime.now() - datetime.timedelta(days=args.years * 365)).strftime("%Y-%m-%d")
+    # 下载数据并计算
+    prices = fetch_prices(tickers, start_date, end_date, market=market)
+    if prices.empty:
+        raise ValueError("未能获取任何股票价格数据，请检查网络、股票代码或时间范围！")
 
-    # 调整到有效交易日
-    start_date, end_date = get_valid_trade_range(start_date, end_date, exchange)
-
-    logging.info(f"市场: {market} | 交易所: {exchange}")
-    logging.info(f"日期范围: {start_date} ~ {end_date}")
-    logging.info(f"股票池: {tickers[:5]}{'...' if len(tickers) > 5 else ''} (共{len(tickers)}只)")
-    logging.info(f"无风险利率: {args.rf:.3%} | 最大权重: {args.max_weight:.1%}")
-
-    # 使用新的模块化接口或传统接口
-    if USE_NEW_MODULES:
-        try:
-            # 使用新的PortfolioOptimizer类
-            optimizer = PortfolioOptimizer(
-                market=market,
-                risk_free_rate=args.rf,
-                max_weight=args.max_weight
-            )
-            
-            weights, performance = optimizer.optimize_portfolio(
-                tickers=tickers,
-                start_date=start_date,
-                end_date=end_date
-            )
-            
-            # 获取价格数据用于保存
-            prices = fetch_prices(tickers, start_date, end_date, market)
-            
-            # 转换性能指标格式以保持兼容性
-            perf_tuple = (
-                performance['expected_annual_return'],
-                performance['annual_volatility'],
-                performance['sharpe_ratio']
-            )
-            
-        except Exception as e:
-            logging.error(f"使用新模块失败，回退到传统方法: {e}")
-            # 回退到传统方法
-            prices = fetch_prices(tickers, start_date, end_date, market)
-            weights, perf_tuple = compute_max_sharpe(prices, rf=args.rf, max_weight=args.max_weight)
-    else:
-        # 使用传统方法
-        prices = fetch_prices(tickers, start_date, end_date, market)
-        weights, perf_tuple = compute_max_sharpe(prices, rf=args.rf, max_weight=args.max_weight)
-
-    # 显示结果
-    logging.info("=" * 60)
-    logging.info("投资组合优化结果")
-    logging.info("=" * 60)
-
-    weights_filtered = {k: v for k, v in weights.items() if v > 0.001}
-    for ticker, weight in sorted(weights_filtered.items(), key=lambda x: x[1], reverse=True):
-        logging.info(f"{ticker:>8s}: {weight:>7.2%}")
-
-    ann_ret, ann_vol, sharpe = perf_tuple
-    logging.info("-" * 40)
-    logging.info(f"预期年化收益: {ann_ret:>7.2%}")
-    logging.info(f"年化波动率:   {ann_vol:>7.2%}")
-    logging.info(f"夏普比率:     {sharpe:>7.3f}")
-
-    # 保存结果
-    prices_file, weights_file, perf_file = save_outputs(
-        prices, weights, perf_tuple, args.output, start_date, end_date
+    weights, performance = compute_max_sharpe(prices, rf=args.rf, max_weight=args.max_weight)
+    prices_csv, weights_csv, perf_json = save_outputs(
+        prices, weights, performance, args.output, start_date, end_date
     )
 
-    logging.info("=" * 60)
-    logging.info("文件保存完成")
-    logging.info(f"价格数据: {prices_file}")
-    logging.info(f"权重配置: {weights_file}")
-    logging.info(f"性能指标: {perf_file}")
+    # 控制台友好输出
+    weights_df = (
+        pd.DataFrame(list(weights.items()), columns=["Ticker", "Weight"])
+        .query("Weight > 0")
+        .sort_values("Weight", ascending=False)
+    )
+    print("\nPortfolio Weights (%):")
+    print((weights_df.assign(Weight=lambda df: df["Weight"] * 100)).to_string(index=False))
+
+    ann_ret, ann_vol, sharpe = performance
+    monthly_return = (1 + ann_ret) ** (1 / 12) - 1
+    monthly_volatility = ann_vol / (12 ** 0.5)
+    perf_df = pd.DataFrame(
+        {
+            "Metric": ["Expected Annual Return", "Annual Volatility", "Sharpe Ratio"],
+            "Value Annually": [ann_ret * 100, ann_vol * 100, sharpe],
+            "Value Monthly": [monthly_return * 100, monthly_volatility * 100, sharpe],
+        }
+    )
+    print("\nPortfolio Performance:")
+    print(perf_df.to_string(index=False))
+
+    print("\nArtifacts saved:")
+    print(f"- Prices CSV: {prices_csv}")
+    print(f"- Weights CSV: {weights_csv}")
+    print(f"- Performance JSON: {perf_json}")
 
 
 if __name__ == "__main__":
