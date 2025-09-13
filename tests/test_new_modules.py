@@ -84,6 +84,23 @@ class TestDataFetcher:
         assert not result.empty
         assert 'AAPL' in result.columns
         mock_yf.download.assert_called_once()
+
+    @patch('maxsharpe.data.yf')
+    def test_fetch_us_prices_multicolumn(self, mock_yf):
+        """测试处理多级索引的美股数据"""
+        index = pd.date_range('2022-01-01', periods=5)
+        cols = pd.MultiIndex.from_product([
+            ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'],
+            ['AAPL', 'MSFT']
+        ])
+        mock_data = pd.DataFrame(np.random.uniform(100, 200, (5, len(cols))), index=index, columns=cols)
+        mock_yf.download.return_value = mock_data
+
+        fetcher = DataFetcher(market="US")
+        result = fetcher.fetch_prices(['AAPL', 'MSFT'], '2022-01-01', '2022-01-05')
+
+        assert list(result.columns) == ['AAPL', 'MSFT']
+        assert not result.isnull().any().any()
     
     def test_get_default_tickers(self):
         """测试获取默认股票池"""
@@ -179,6 +196,13 @@ class TestUtils:
         prices.iloc[0, 0] = -10
         with pytest.raises(ValueError, match="非正数值"):
             validate_price_data(prices)
+
+    def test_validate_price_data_nan_handling(self):
+        """测试缺失值自动处理"""
+        prices = make_test_prices()
+        prices.iloc[5, 0] = np.nan
+        validate_price_data(prices)
+        assert not prices.isnull().any().any()
     
     def test_calculate_returns(self):
         """测试收益率计算"""

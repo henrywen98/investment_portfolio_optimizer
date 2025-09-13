@@ -8,6 +8,16 @@ import logging
 from typing import Iterable, Dict, Any
 import pandas as pd
 
+try:  # pragma: no cover - optional dependencies
+    import akshare as ak
+except ImportError:  # pragma: no cover
+    ak = None
+
+try:  # pragma: no cover - optional dependencies
+    import yfinance as yf
+except ImportError:  # pragma: no cover
+    yf = None
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +63,9 @@ class DataFetcher:
     def _fetch_cn_prices(self, tickers: Iterable[str], start_date: str, 
                         end_date: str, adjust: str = "hfq") -> pd.DataFrame:
         """获取A股价格数据"""
-        try:
-            import akshare as ak
-        except ImportError as e:
-            raise ImportError("需要安装 akshare 才能下载A股数据：pip install akshare") from e
-        
+        if ak is None:
+            raise ImportError("需要安装 akshare 才能下载A股数据：pip install akshare")
+
         data = pd.DataFrame()
         
         for ticker in tickers:
@@ -88,18 +96,16 @@ class DataFetcher:
             raise ValueError("未能获取任何价格数据")
         
         # 前向填充缺失值
-        data = data.fillna(method='ffill').dropna()
+        data = data.ffill().dropna()
         
         return data
     
-    def _fetch_us_prices(self, tickers: Iterable[str], start_date: str, 
+    def _fetch_us_prices(self, tickers: Iterable[str], start_date: str,
                         end_date: str) -> pd.DataFrame:
         """获取美股价格数据"""
-        try:
-            import yfinance as yf
-        except ImportError as e:
-            raise ImportError("需要安装 yfinance 才能下载美股数据：pip install yfinance") from e
-        
+        if yf is None:
+            raise ImportError("需要安装 yfinance 才能下载美股数据：pip install yfinance")
+
         try:
             logger.info(f"正在下载美股数据: {list(tickers)}")
             data = yf.download(
@@ -114,22 +120,33 @@ class DataFetcher:
             if data.empty:
                 raise ValueError("未能获取任何价格数据")
             
-            # 如果只有一只股票，yfinance返回的格式不同
+            # 处理返回的数据格式
             if len(list(tickers)) == 1:
-                if 'Close' in data.columns:
+                # 单只股票时，yfinance返回Series或DataFrame
+                if isinstance(data, pd.DataFrame) and 'Close' in data.columns:
                     result = pd.DataFrame({list(tickers)[0]: data['Close']})
                 else:
-                    result = data.to_frame(list(tickers)[0])
+                    result = data.to_frame(name=list(tickers)[0])
             else:
-                # 多只股票时，提取Close价格
-                if 'Close' in data.columns:
+                # 多只股票时可能返回多级索引的列
+                if isinstance(data.columns, pd.MultiIndex):
+                    if 'Close' in data.columns.get_level_values(0):
+                        result = data.xs('Close', level=0, axis=1)
+                    else:
+                        # 退一步尝试使用"Adj Close"
+                        result = data.xs('Adj Close', level=0, axis=1)
+                elif 'Close' in data.columns:
                     result = data['Close']
                 else:
                     result = data
-            
-            # 前向填充缺失值
-            result = result.fillna(method='ffill').dropna()
-            
+
+            # 删除完全缺失的列并清理缺失值
+            result = result.dropna(axis=1, how='all')
+            result = result.ffill().dropna()
+
+            if result.empty:
+                raise ValueError("未能获取任何有效价格数据")
+
             return result
             
         except Exception as e:
