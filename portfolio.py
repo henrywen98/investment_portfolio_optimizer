@@ -19,10 +19,18 @@ try:
     from maxsharpe import PortfolioOptimizer, get_valid_trade_range
     from maxsharpe.data import get_default_tickers
     from maxsharpe.utils import setup_logger
-    
+
     # 向后兼容的导入
-    from maxsharpe.core import compute_max_sharpe, fetch_prices
-    
+    from maxsharpe.core import compute_max_sharpe as _compute_max_sharpe, fetch_prices
+
+    def compute_max_sharpe(prices: pd.DataFrame, rf: float = 0.02, max_weight: float = 1.0):
+        weights, perf = _compute_max_sharpe(prices, rf=rf, max_weight=max_weight)
+        return weights, (
+            perf["expected_annual_return"],
+            perf["annual_volatility"],
+            perf["sharpe_ratio"],
+        )
+
     USE_NEW_MODULES = True
     
 except ImportError:
