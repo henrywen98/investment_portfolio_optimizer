@@ -96,7 +96,7 @@ class DataFetcher:
             raise ValueError("未能获取任何价格数据")
         
         # 前向填充缺失值
-        data = data.fillna(method='ffill').dropna()
+        data = data.ffill().dropna()
         
         return data
     
@@ -120,22 +120,33 @@ class DataFetcher:
             if data.empty:
                 raise ValueError("未能获取任何价格数据")
             
-            # 如果只有一只股票，yfinance返回的格式不同
+            # 处理返回的数据格式
             if len(list(tickers)) == 1:
-                if 'Close' in data.columns:
+                # 单只股票时，yfinance返回Series或DataFrame
+                if isinstance(data, pd.DataFrame) and 'Close' in data.columns:
                     result = pd.DataFrame({list(tickers)[0]: data['Close']})
                 else:
-                    result = data.to_frame(list(tickers)[0])
+                    result = data.to_frame(name=list(tickers)[0])
             else:
-                # 多只股票时，提取Close价格
-                if 'Close' in data.columns:
+                # 多只股票时可能返回多级索引的列
+                if isinstance(data.columns, pd.MultiIndex):
+                    if 'Close' in data.columns.get_level_values(0):
+                        result = data.xs('Close', level=0, axis=1)
+                    else:
+                        # 退一步尝试使用"Adj Close"
+                        result = data.xs('Adj Close', level=0, axis=1)
+                elif 'Close' in data.columns:
                     result = data['Close']
                 else:
                     result = data
-            
-            # 前向填充缺失值
-            result = result.fillna(method='ffill').dropna()
-            
+
+            # 删除完全缺失的列并清理缺失值
+            result = result.dropna(axis=1, how='all')
+            result = result.ffill().dropna()
+
+            if result.empty:
+                raise ValueError("未能获取任何有效价格数据")
+
             return result
             
         except Exception as e:

@@ -95,9 +95,15 @@ def validate_price_data(prices: pd.DataFrame) -> None:
     if len(prices.columns) < 2:
         raise ValueError("至少需要2只股票才能进行组合优化")
     
-    # 检查是否有缺失值
+    # 检查并处理缺失值
     if prices.isnull().any().any():
         logger.warning("价格数据中存在缺失值，将进行前向填充")
+        prices.ffill(inplace=True)
+        prices.dropna(inplace=True)
+
+        # 清理后再次检查
+        if prices.isnull().any().any():
+            raise ValueError("价格数据中仍存在缺失值")
     
     # 检查是否有负数或零
     if (prices <= 0).any().any():

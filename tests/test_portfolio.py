@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import tempfile
 import os
+import warnings
 from unittest.mock import patch, MagicMock
 
 from portfolio import compute_max_sharpe, get_valid_trade_range, save_outputs
@@ -252,11 +253,11 @@ class TestEdgeCases:
     def test_very_short_time_series(self):
         """测试很短的时间序列"""
         prices = make_prices(days=10)  # 只有10天数据
-        
+
         # 应该给出警告但仍能计算
-        with pytest.warns(None) as warning_list:
+        with warnings.catch_warnings(record=True) as warning_list:
             weights, perf = compute_max_sharpe(prices, rf=0.02, max_weight=0.5)
-        
+
         assert sum(weights.values()) == pytest.approx(1.0, rel=1e-4)
 
     def test_negative_risk_free_rate(self):
