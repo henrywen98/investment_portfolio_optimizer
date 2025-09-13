@@ -8,6 +8,16 @@ import logging
 from typing import Iterable, Dict, Any
 import pandas as pd
 
+try:  # pragma: no cover - optional dependencies
+    import akshare as ak
+except ImportError:  # pragma: no cover
+    ak = None
+
+try:  # pragma: no cover - optional dependencies
+    import yfinance as yf
+except ImportError:  # pragma: no cover
+    yf = None
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +63,9 @@ class DataFetcher:
     def _fetch_cn_prices(self, tickers: Iterable[str], start_date: str, 
                         end_date: str, adjust: str = "hfq") -> pd.DataFrame:
         """获取A股价格数据"""
-        try:
-            import akshare as ak
-        except ImportError as e:
-            raise ImportError("需要安装 akshare 才能下载A股数据：pip install akshare") from e
-        
+        if ak is None:
+            raise ImportError("需要安装 akshare 才能下载A股数据：pip install akshare")
+
         data = pd.DataFrame()
         
         for ticker in tickers:
@@ -92,14 +100,12 @@ class DataFetcher:
         
         return data
     
-    def _fetch_us_prices(self, tickers: Iterable[str], start_date: str, 
+    def _fetch_us_prices(self, tickers: Iterable[str], start_date: str,
                         end_date: str) -> pd.DataFrame:
         """获取美股价格数据"""
-        try:
-            import yfinance as yf
-        except ImportError as e:
-            raise ImportError("需要安装 yfinance 才能下载美股数据：pip install yfinance") from e
-        
+        if yf is None:
+            raise ImportError("需要安装 yfinance 才能下载美股数据：pip install yfinance")
+
         try:
             logger.info(f"正在下载美股数据: {list(tickers)}")
             data = yf.download(

@@ -81,6 +81,14 @@ python portfolio.py --market CN --tickers "600519,000858,601318"
 python portfolio.py --market US --tickers "AAPL,MSFT,GOOGL"
 ```
 
+### 🖥️ Streamlit Web界面
+
+使用交互式前端运行优化器：
+
+```bash
+streamlit run streamlit_app.py
+```
+
 ## ⚙️ 参数说明
 
 ## ⚙️ 参数说明
