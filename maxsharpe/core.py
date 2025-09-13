@@ -10,7 +10,11 @@ import pandas as pd
 
 from .data import DataFetcher
 from .optimizer import MaxSharpeOptimizer
-from .utils import get_valid_trade_range, format_performance_output
+from .utils import (
+    get_valid_trade_range,
+    format_performance_output,
+    validate_price_data,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +33,7 @@ def compute_max_sharpe(prices: pd.DataFrame, rf: float = 0.02,
     Returns:
         (weights, performance): 权重字典和性能指标字典
     """
+    validate_price_data(prices)
     optimizer = MaxSharpeOptimizer(risk_free_rate=rf, max_weight=max_weight)
     weights, performance = optimizer.optimize(prices)
     return weights, format_performance_output(weights, performance)
@@ -121,11 +126,12 @@ class PortfolioOptimizer:
         logger.info(f"获取 {self.market} 市场数据，时间范围: {start_date} 到 {end_date}")
         logger.info(f"股票代码: {list(tickers)}")
         
-        # 获取价格数据
+        # 获取价格数据并验证
         prices = self.data_fetcher.fetch_prices(tickers, start_date, end_date)
-        
+        validate_price_data(prices)
+
         logger.info(f"成功获取 {len(prices.columns)} 只股票的价格数据")
-        
+
         # 执行优化
         weights, performance = self.optimizer.optimize(prices)
         

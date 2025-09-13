@@ -19,6 +19,7 @@
 - 🎯 **优化算法**: 基于 PyPortfolioOpt 计算最大夏普比率组合，支持权重约束
 - 📋 **丰富输出**: 生成价格数据、组合权重、表现指标三类文件
 - 🔧 **命令行友好**: 提供完整的CLI接口，易于使用和集成
+- 🧹 **数据质量报告**: 自动清理并记录缺失值，便于调试
 
 ## 🚀 快速开始
 
@@ -79,6 +80,14 @@ python portfolio.py --market CN --tickers "600519,000858,601318"
 
 # 美股示例
 python portfolio.py --market US --tickers "AAPL,MSFT,GOOGL"
+```
+
+### 🖥️ Streamlit Web界面
+
+使用交互式前端运行优化器：
+
+```bash
+streamlit run streamlit_app.py
 ```
 
 ## ⚙️ 参数说明

@@ -13,11 +13,12 @@ from .data import DataFetcher
 from .utils import get_valid_trade_range
 
 # 为了向后兼容，保留原有的函数接口
-from .core import compute_max_sharpe
+from .core import compute_max_sharpe, PortfolioOptimizer
 
 __all__ = [
     "MaxSharpeOptimizer",
-    "DataFetcher", 
+    "DataFetcher",
     "get_valid_trade_range",
     "compute_max_sharpe",
+    "PortfolioOptimizer",
 ]

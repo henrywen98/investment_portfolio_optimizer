@@ -39,24 +39,27 @@ def get_valid_trade_range(start_date: str, end_date: str, exchange: str = "XSHG"
     """
     try:
         import pandas_market_calendars as mcal
-    except ImportError as e:
-        raise ImportError("需要安装 pandas-market-calendars：pip install pandas-market-calendars") from e
-    
+    except ImportError as e:  # pragma: no cover
+        raise ImportError(
+            "需要安装 pandas-market-calendars：pip install pandas-market-calendars"
+        ) from e
+
     try:
         cal = mcal.get_calendar(exchange)
         schedule = cal.schedule(start_date=start_date, end_date=end_date)
-        
-        if schedule.empty:
-            raise ValueError(f"未找到有效的交易日，请检查时间范围或交易所日历！交易所: {exchange}")
-        
-        start = schedule.index[0].strftime("%Y-%m-%d")
-        end = schedule.index[-1].strftime("%Y-%m-%d")
-        
-        return start, end
-        
     except Exception as e:
-        logger.warning(f"获取交易日历失败: {e}，使用原始日期")
-        return start_date, end_date
+        logger.warning(f"获取交易日历失败: {e}")
+        raise
+
+    if schedule.empty:
+        raise ValueError(
+            f"未找到有效的交易日，请检查时间范围或交易所日历！交易所: {exchange}"
+        )
+
+    start = schedule.index[0].strftime("%Y-%m-%d")
+    end = schedule.index[-1].strftime("%Y-%m-%d")
+
+    return start, end
 
 
 def calculate_returns(prices: pd.DataFrame) -> pd.DataFrame:
@@ -88,13 +91,31 @@ def validate_price_data(prices: pd.DataFrame) -> None:
     """验证价格数据的有效性"""
     if prices.empty:
         raise ValueError("价格数据为空")
-    
+
     if len(prices.columns) < 2:
         raise ValueError("至少需要2只股票才能进行组合优化")
-    
-    # 检查是否有缺失值
+
+    # 转换为数值类型
+    prices[:] = prices.apply(pd.to_numeric, errors='coerce')
+
+    # 检查并处理缺失值
     if prices.isnull().any().any():
-        logger.warning("价格数据中存在缺失值，将进行前向填充")
+        nan_info = prices.isnull().sum()
+        logger.warning(
+            f"价格数据中存在缺失值，将进行前向填充: {nan_info[nan_info > 0].to_dict()}"
+        )
+        prices.ffill(inplace=True)
+        prices.dropna(inplace=True)
+
+        # 清理后再次检查
+        if prices.isnull().any().any():
+            nan_info = prices.isnull().sum()
+            raise ValueError(
+                f"价格数据中仍存在缺失值: {nan_info[nan_info > 0].to_dict()}"
+            )
+
+    if prices.empty:
+        raise ValueError("清理后价格数据为空")
     
     # 检查是否有负数或零
     if (prices <= 0).any().any():
