@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "maxsharpe-portfolio"
 version = "1.0.0"
-description = "A Python tool for building Max Sharpe Ratio portfolios with support for CN and US markets"
+description = "A Python tool for building Max Sharpe Ratio portfolios for the CN market"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -23,7 +23,7 @@ keywords = [
     "quantitative",
     "stocks",
     "china",
-    "us-market"
+    
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -48,7 +48,7 @@ dependencies = [
     "pandas-market-calendars>=4.3",
     "PyPortfolioOpt>=1.5.5",
     "akshare>=1.12.0",
-    "yfinance>=0.2.0",
+    
 ]
 
 [project.optional-dependencies]

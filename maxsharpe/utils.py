@@ -31,8 +31,6 @@ def get_valid_trade_range(start_date: str, end_date: str, exchange: str = "XSHG"
         end_date: 结束日期 (YYYY-MM-DD)
         exchange: 交易所代码
             - XSHG: 上海证券交易所 (中国A股)
-            - NYSE: 纽约证券交易所 (美股)
-            - NASDAQ: 纳斯达克 (美股)
     
     Returns:
         (start_date, end_date) 调整后的日期范围
@@ -138,9 +136,5 @@ def format_performance_output(weights: dict, performance: dict) -> dict:
 
 
 def get_exchange_for_market(market: str) -> str:
-    """根据市场类型获取默认交易所"""
-    market_exchange_map = {
-        'CN': 'XSHG',  # 上海证券交易所
-        'US': 'NYSE',  # 纽约证券交易所
-    }
-    return market_exchange_map.get(market.upper(), 'XSHG')
+    """根据市场类型获取默认交易所（仅支持 CN）"""
+    return 'XSHG'

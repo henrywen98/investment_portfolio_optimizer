@@ -35,7 +35,7 @@ def sample_price_data():
     return pd.DataFrame(
         prices,
         index=dates,
-        columns=['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
+        columns=['600519', '000858', '601318', '600036', '000063']
     )
 
 
@@ -87,28 +87,18 @@ def mock_akshare_data():
     })
 
 
-@pytest.fixture
-def mock_yfinance_data():
-    """提供模拟yfinance数据的fixture"""
-    dates = pd.date_range("2022-01-01", periods=100)
-    return pd.DataFrame({
-        'Open': np.random.uniform(150, 170, 100),
-        'High': np.random.uniform(170, 190, 100),
-        'Low': np.random.uniform(140, 160, 100),
-        'Close': np.random.uniform(155, 175, 100),
-        'Volume': np.random.randint(1000000, 50000000, 100)
-    }, index=dates)
+# 已移除：yfinance 模拟数据 fixture（不再支持美股）
 
 
 @pytest.fixture
 def sample_weights():
     """提供示例权重数据的fixture"""
     return {
-        'AAPL': 0.35,
-        'MSFT': 0.25,
-        'GOOGL': 0.20,
-        'AMZN': 0.15,
-        'TSLA': 0.05
+        '600519': 0.35,
+        '000858': 0.25,
+        '601318': 0.20,
+        '600036': 0.15,
+        '000063': 0.05
     }
 
 

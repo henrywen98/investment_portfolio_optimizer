@@ -82,16 +82,16 @@ maxsharpe/
 
 ### 作为命令行工具
 ```bash
-python portfolio.py --market US --years 3 --rf 0.02 --max-weight 0.3
+python portfolio.py --market CN --years 3 --rf 0.02 --max-weight 0.3
 ```
 
 ### 作为Python包
 ```python
 from maxsharpe import MaxSharpeOptimizer, DataFetcher
 
-# 使用新的面向对象接口
+# 使用新的面向对象接口（仅 CN）
 optimizer = MaxSharpeOptimizer(risk_free_rate=0.02, max_weight=0.3)
-fetcher = DataFetcher(market="US")
+fetcher = DataFetcher(market="CN")
 
 # 或使用传统函数接口
 from maxsharpe import compute_max_sharpe
@@ -146,7 +146,7 @@ python -m build
 
 ## 🎊 项目亮点
 
-- 📈 **实用性强**: 支持中美两大股票市场的投资组合优化
+- 📈 **实用性强**: 支持中国A股的投资组合优化
 - 🔧 **易于使用**: 提供命令行和编程接口
 - 📚 **文档完整**: 从入门到高级的完整文档
 - 🧪 **质量保证**: 全面的测试和自动化检查

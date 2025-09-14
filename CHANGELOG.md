@@ -65,3 +65,9 @@
 - [akshare](https://github.com/akfamily/akshare)  
 - [yfinance](https://github.com/ranaroussi/yfinance)
 - [pandas-market-calendars](https://github.com/rsheftel/pandas_market_calendars)
+# Changelog
+
+## [Unreleased]
+- Removed US market support completely (code, tests, scripts, docs)
+- Simplified CLI, docs and configs to CN-only
+- Dropped yfinance and pandas-datareader dependencies

@@ -71,7 +71,7 @@ class PortfolioOptimizer:
         初始化投资组合优化器
         
         Args:
-            market: 市场类型 ("CN" 或 "US")
+            market: 市场类型（仅支持 "CN"）
             risk_free_rate: 无风险利率
             max_weight: 最大单一资产权重
         """

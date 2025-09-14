@@ -7,7 +7,7 @@ st.set_page_config(page_title="Max Sharpe Optimizer")
 
 st.title("📈 Max Sharpe Portfolio Optimizer")
 
-market = st.selectbox("Market", ["CN", "US"], index=0)
+market = st.selectbox("Market", ["CN"], index=0)
 
 default_tickers = ",".join(get_default_tickers(market))
 user_tickers = st.text_input("Tickers (comma separated)", default_tickers)

@@ -1,7 +1,7 @@
 """
 Max Sharpe Portfolio Optimizer
 
-一个用于构建最大夏普比率投资组合的Python工具包，支持中国A股和美股市场。
+一个用于构建最大夏普比率投资组合的Python工具包（仅支持中国A股）。
 """
 
 __version__ = "1.0.0"
