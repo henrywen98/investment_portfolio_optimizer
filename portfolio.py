@@ -44,21 +44,13 @@ except ImportError:
 
     USE_NEW_MODULES = False
 
-    # 保留原有的常量定义
+    # 保留原有的常量定义（仅中国A股）
     DEFAULT_TICKERS_CN = [
         "600519", "000858", "600887", "002594", "000333",
         "601888", "000063", "002230", "600941", "600036",
         "601318", "600028", "601012", "600438", "600031",
         "600585", "600019", "600276", "601899", "002352",
         "601766", "600030", "600406", "601668", "002714",
-    ]
-
-    DEFAULT_TICKERS_US = [
-        "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
-        "TSLA", "META", "BRK-B", "V", "JNJ",
-        "UNH", "XOM", "WMT", "LLY", "PG",
-        "MA", "JPM", "HD", "CVX", "MRK",
-        "ABBV", "KO", "AVGO", "PEP", "PFE",
     ]
 
     DEFAULT_TICKERS = DEFAULT_TICKERS_CN
@@ -84,10 +76,8 @@ except ImportError:
     def fetch_prices(tickers: Iterable[str], start_date: str, end_date: str, market: str = "CN", adjust: str = "hfq") -> pd.DataFrame:
         if market.upper() == "CN":
             return _fetch_cn_prices(tickers, start_date, end_date, adjust)
-        elif market.upper() == "US":
-            return _fetch_us_prices(tickers, start_date, end_date)
         else:
-            raise ValueError(f"Unsupported market: {market}. Use 'CN' or 'US'.")
+            raise ValueError(f"Unsupported market: {market}. Only 'CN' is supported.")
 
     def _fetch_cn_prices(tickers: Iterable[str], start_date: str, end_date: str, adjust: str = "hfq") -> pd.DataFrame:
         data = pd.DataFrame()
@@ -117,27 +107,7 @@ except ImportError:
                 logging.error(f"下载 {ticker} 失败: {e}")
         return data.sort_index()
 
-    def _fetch_us_prices(tickers: Iterable[str], start_date: str, end_date: str) -> pd.DataFrame:
-        data = pd.DataFrame()
-        try:
-            import yfinance as yf
-        except Exception as e:
-            raise ImportError("需要安装 yfinance 才能下载美股数据：pip install yfinance") from e
-
-        for ticker in tickers:
-            try:
-                stock = yf.Ticker(ticker)
-                df = stock.history(start=start_date, end=end_date, auto_adjust=True)
-                if df is None or df.empty:
-                    logging.warning(f"{ticker}: 无数据返回，已跳过")
-                    continue
-                close_series = df["Close"].astype(float)
-                close_series.name = ticker
-                data = pd.concat([data, close_series], axis=1)
-                logging.info(f"已下载 {ticker} 的收盘价，共 {close_series.shape[0]} 行")
-            except Exception as e:
-                logging.error(f"下载 {ticker} 失败: {e}")
-        return data.sort_index()
+    # 已移除：美股数据获取方法（仅支持 CN）
 
     def compute_max_sharpe(prices: pd.DataFrame, rf: float = 0.01696, max_weight: float = 0.25) -> Tuple[Dict[str, float], Tuple[float, float, float]]:
         if prices.empty:
@@ -156,8 +126,6 @@ except ImportError:
         return weights, performance
     
     def get_default_tickers(market: str) -> list:
-        if market.upper() == "US":
-            return DEFAULT_TICKERS_US
         return DEFAULT_TICKERS_CN
 
 
@@ -211,13 +179,13 @@ def save_outputs(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Max Sharpe Portfolio for China A-shares and US stocks")
+    parser = argparse.ArgumentParser(description="Max Sharpe Portfolio for China A-shares")
     parser.add_argument(
         "--market",
         type=str,
-        choices=["CN", "US"],
+        choices=["CN"],
         default="CN",
-        help="市场选择：CN（中国A股）或 US（美股），默认CN",
+        help="市场选择：仅支持 CN（中国A股）",
     )
     parser.add_argument(
         "--tickers",
@@ -244,14 +212,10 @@ def main() -> None:
     args = parse_args()
     setup_logger(verbose=not args.quiet)
 
-    # 市场和交易所设置
+    # 市场和交易所设置（仅 CN）
     market = args.market.upper()
-    if market == "CN":
-        exchange = "XSHG"
-        default_tickers = get_default_tickers("CN")
-    else:  # US
-        exchange = "NYSE"
-        default_tickers = get_default_tickers("US")
+    exchange = "XSHG"
+    default_tickers = get_default_tickers("CN")
 
     # 选择股票
     if args.tickers:

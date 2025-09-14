@@ -117,12 +117,7 @@ class TestTradeDateRange:
         assert isinstance(end_date, str)
         assert start_date <= end_date
 
-    def test_get_valid_trade_range_us(self):
-        """测试美国市场交易日获取"""
-        start_date, end_date = get_valid_trade_range("2023-01-01", "2023-01-10", "NYSE")
-        assert isinstance(start_date, str)
-        assert isinstance(end_date, str)
-        assert start_date <= end_date
+    # 移除美股相关测试
 
     def test_get_valid_trade_range_invalid_exchange(self):
         """测试无效的交易所"""
@@ -197,9 +192,6 @@ class TestNewModules:
         """测试DataFetcher初始化"""
         fetcher = DataFetcher(market="CN")
         assert fetcher.market == "CN"
-        
-        fetcher = DataFetcher(market="US")
-        assert fetcher.market == "US"
         
         with pytest.raises(ValueError):
             DataFetcher(market="INVALID")

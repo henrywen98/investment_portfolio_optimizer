@@ -41,10 +41,7 @@ class TestDataFetcher:
         fetcher = DataFetcher(market="CN")
         assert fetcher.market == "CN"
     
-    def test_init_us_market(self):
-        """测试美国市场初始化"""
-        fetcher = DataFetcher(market="US")
-        assert fetcher.market == "US"
+    # 已移除：美股市场初始化测试
     
     def test_invalid_market(self):
         """测试无效市场"""
@@ -68,50 +65,15 @@ class TestDataFetcher:
         assert '600519' in result.columns
         mock_ak.stock_zh_a_hist.assert_called_once()
     
-    @patch('maxsharpe.data.yf')
-    def test_fetch_us_prices_success(self, mock_yf):
-        """测试成功获取美股数据"""
-        # 模拟yfinance返回的数据
-        mock_data = pd.DataFrame({
-            'Close': np.random.uniform(100, 200, 10)
-        }, index=pd.date_range('2022-01-01', periods=10))
-        
-        mock_yf.download.return_value = mock_data
-        
-        fetcher = DataFetcher(market="US")
-        result = fetcher.fetch_prices(['AAPL'], '2022-01-01', '2022-01-10')
-        
-        assert not result.empty
-        assert 'AAPL' in result.columns
-        mock_yf.download.assert_called_once()
+    # 已移除：美股数据获取测试
 
-    @patch('maxsharpe.data.yf')
-    def test_fetch_us_prices_multicolumn(self, mock_yf):
-        """测试处理多级索引的美股数据"""
-        index = pd.date_range('2022-01-01', periods=5)
-        cols = pd.MultiIndex.from_product([
-            ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'],
-            ['AAPL', 'MSFT']
-        ])
-        mock_data = pd.DataFrame(np.random.uniform(100, 200, (5, len(cols))), index=index, columns=cols)
-        mock_yf.download.return_value = mock_data
-
-        fetcher = DataFetcher(market="US")
-        result = fetcher.fetch_prices(['AAPL', 'MSFT'], '2022-01-01', '2022-01-05')
-
-        assert list(result.columns) == ['AAPL', 'MSFT']
-        assert not result.isnull().any().any()
+    # 已移除：美股多列数据处理测试
     
     def test_get_default_tickers(self):
-        """测试获取默认股票池"""
+        """测试获取默认股票池（仅 CN）"""
         cn_tickers = get_default_tickers("CN")
-        us_tickers = get_default_tickers("US")
-        
         assert isinstance(cn_tickers, list)
-        assert isinstance(us_tickers, list)
         assert len(cn_tickers) > 0
-        assert len(us_tickers) > 0
-        assert cn_tickers != us_tickers
 
 
 class TestMaxSharpeOptimizer:
@@ -214,11 +176,9 @@ class TestUtils:
         assert not returns.isnull().all().any()
     
     def test_get_exchange_for_market(self):
-        """测试获取市场对应的交易所"""
+        """测试获取市场对应的交易所（仅 CN）"""
         assert get_exchange_for_market("CN") == "XSHG"
-        assert get_exchange_for_market("US") == "NYSE"
         assert get_exchange_for_market("cn") == "XSHG"
-        assert get_exchange_for_market("us") == "NYSE"
         assert get_exchange_for_market("UNKNOWN") == "XSHG"  # 默认值
 
 
@@ -230,10 +190,7 @@ class TestPortfolioOptimizer:
         optimizer = PortfolioOptimizer()
         assert optimizer.market == "CN"
     
-    def test_init_us_market(self):
-        """测试美股市场初始化"""
-        optimizer = PortfolioOptimizer(market="US", risk_free_rate=0.03, max_weight=0.2)
-        assert optimizer.market == "US"
+    # 已移除：美股市场初始化测试
     
     @patch.object(DataFetcher, 'fetch_prices')
     def test_optimize_portfolio_success(self, mock_fetch):
@@ -293,13 +250,13 @@ class TestIntegration:
         
         # 创建优化器并运行
         optimizer = PortfolioOptimizer(
-            market="US",
+            market="CN",
             risk_free_rate=0.02,
             max_weight=0.4
         )
         
         weights, performance = optimizer.optimize_portfolio(
-            tickers=['AAPL', 'MSFT', 'GOOGL'],
+            tickers=['600519', '000858', '601318'],
             years=1
         )
         
