@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+[![CI](https://github.com/henrywen98/investment_portfolio_optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/henrywen98/investment_portfolio_optimizer/actions/workflows/ci.yml)
 
 A Python tool to download stock closing prices and build a Max Sharpe Ratio portfolio. Currently supports the China A-share market (CN) only.
 
@@ -125,4 +126,3 @@ MIT License. See [LICENSE](LICENSE).
 
 - Questions & suggestions: open an Issue
 - If you find this useful, please leave a Star ⭐
-
