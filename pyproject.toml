@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "maxsharpe-portfolio"
 version = "1.0.0"
-description = "A Python tool for building Max Sharpe Ratio portfolios for the CN market"
+description = "CN-only Max Sharpe portfolio optimizer | 中国A股最大夏普比率组合优化工具"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -70,6 +70,7 @@ Homepage = "https://github.com/henrywen98/investment_portfolio_optimizer"
 Repository = "https://github.com/henrywen98/investment_portfolio_optimizer.git"
 Issues = "https://github.com/henrywen98/investment_portfolio_optimizer/issues"
 Documentation = "https://github.com/henrywen98/investment_portfolio_optimizer#readme"
+"Documentation (EN)" = "https://github.com/henrywen98/investment_portfolio_optimizer/blob/main/README_EN.md"
 
 [project.scripts]
 maxsharpe = "portfolio:main"
