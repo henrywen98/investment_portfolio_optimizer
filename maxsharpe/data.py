@@ -103,7 +103,7 @@ class DataFetcher:
         if nan_info.any():
             logger.debug(f"A股数据缺失值统计: {nan_info[nan_info > 0].to_dict()}")
         data = data.ffill().dropna()
-
+        
         return data
     
     def _fetch_us_prices(self, tickers: Iterable[str], start_date: str,

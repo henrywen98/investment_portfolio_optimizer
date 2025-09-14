@@ -104,6 +104,7 @@ def validate_price_data(prices: pd.DataFrame) -> None:
         logger.warning(
             f"价格数据中存在缺失值，将进行前向填充: {nan_info[nan_info > 0].to_dict()}"
         )
+        
         prices.ffill(inplace=True)
         prices.dropna(inplace=True)
 
