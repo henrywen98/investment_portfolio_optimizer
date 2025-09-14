@@ -67,7 +67,7 @@ class DataFetcher:
             raise ImportError("需要安装 akshare 才能下载A股数据：pip install akshare")
 
         data = pd.DataFrame()
-        
+
         for ticker in tickers:
             try:
                 logger.info(f"正在下载 {ticker} 的价格数据...")
@@ -77,25 +77,31 @@ class DataFetcher:
                     end_date=end_date.replace("-", ""),
                     adjust=adjust
                 )
-                
+
                 if df.empty:
                     logger.warning(f"股票 {ticker} 没有数据")
                     continue
-                
+
                 df['日期'] = pd.to_datetime(df['日期'])
                 df.set_index('日期', inplace=True)
                 df.sort_index(inplace=True)
-                
-                data[ticker] = df['收盘']
-                
+
+                # 确保价格为数值类型
+                close = pd.to_numeric(df['收盘'], errors='coerce')
+                data[ticker] = close
+
             except Exception as e:
                 logger.error(f"下载股票 {ticker} 数据失败: {e}")
                 continue
-        
+
         if data.empty:
             raise ValueError("未能获取任何价格数据")
-        
-        # 前向填充缺失值
+
+        # 转换为数值并清理缺失值
+        data = data.apply(pd.to_numeric, errors='coerce')
+        nan_info = data.isna().sum()
+        if nan_info.any():
+            logger.debug(f"A股数据缺失值统计: {nan_info[nan_info > 0].to_dict()}")
         data = data.ffill().dropna()
         
         return data
@@ -142,6 +148,10 @@ class DataFetcher:
 
             # 删除完全缺失的列并清理缺失值
             result = result.dropna(axis=1, how='all')
+            result = result.apply(pd.to_numeric, errors='coerce')
+            nan_info = result.isna().sum()
+            if nan_info.any():
+                logger.debug(f"美股数据缺失值统计: {nan_info[nan_info > 0].to_dict()}")
             result = result.ffill().dropna()
 
             if result.empty:

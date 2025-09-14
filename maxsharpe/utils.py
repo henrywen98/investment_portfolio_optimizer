@@ -91,19 +91,32 @@ def validate_price_data(prices: pd.DataFrame) -> None:
     """验证价格数据的有效性"""
     if prices.empty:
         raise ValueError("价格数据为空")
-    
+
     if len(prices.columns) < 2:
         raise ValueError("至少需要2只股票才能进行组合优化")
-    
+
+    # 转换为数值类型
+    prices[:] = prices.apply(pd.to_numeric, errors='coerce')
+
     # 检查并处理缺失值
     if prices.isnull().any().any():
-        logger.warning("价格数据中存在缺失值，将进行前向填充")
+        nan_info = prices.isnull().sum()
+        logger.warning(
+            f"价格数据中存在缺失值，将进行前向填充: {nan_info[nan_info > 0].to_dict()}"
+        )
+        
         prices.ffill(inplace=True)
         prices.dropna(inplace=True)
 
         # 清理后再次检查
         if prices.isnull().any().any():
-            raise ValueError("价格数据中仍存在缺失值")
+            nan_info = prices.isnull().sum()
+            raise ValueError(
+                f"价格数据中仍存在缺失值: {nan_info[nan_info > 0].to_dict()}"
+            )
+
+    if prices.empty:
+        raise ValueError("清理后价格数据为空")
     
     # 检查是否有负数或零
     if (prices <= 0).any().any():

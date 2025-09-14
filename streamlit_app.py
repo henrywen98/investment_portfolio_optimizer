@@ -25,8 +25,15 @@ def run_optimization(market: str, tickers: list, years: int, rf: float, max_weig
 
 if st.button("Optimize"):
     with st.spinner("Optimizing portfolio..."):
-        weights, performance = run_optimization(market, tickers, int(years), rf, max_weight)
-    st.subheader("Weights")
-    st.dataframe(pd.DataFrame.from_dict(weights, orient="index", columns=["Weight"]))
-    st.subheader("Performance")
-    st.json(performance)
+        try:
+            weights, performance = run_optimization(
+                market, tickers, int(years), rf, max_weight
+            )
+            st.subheader("Weights")
+            st.dataframe(
+                pd.DataFrame.from_dict(weights, orient="index", columns=["Weight"])
+            )
+            st.subheader("Performance")
+            st.json(performance)
+        except Exception as e:  # pragma: no cover - UI feedback
+            st.error(f"Optimization failed: {e}")
