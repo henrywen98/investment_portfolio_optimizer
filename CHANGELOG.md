@@ -71,3 +71,5 @@
 - Removed US market support completely (code, tests, scripts, docs)
 - Simplified CLI, docs and configs to CN-only
 - Dropped yfinance and pandas-datareader dependencies
+- Refresh README (CN) and add English README
+- Add CI badge; improve docs with examples, Docker, and architecture diagram

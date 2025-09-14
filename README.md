@@ -35,6 +35,7 @@ git clone https://github.com/henrywen98/investment_portfolio_optimizer.git
 cd investment_portfolio_optimizer
 python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -e .  # 可选：安装 CLI 入口 maxsharpe
 ```
 
 ### 命令行使用
@@ -48,6 +49,12 @@ python portfolio.py \
   --rf 0.01696 \
   --max-weight 0.25 \
   --output ./data
+```
+
+若使用可执行入口（需先 `pip install -e .`）：
+
+```bash
+maxsharpe --market CN --years 5 --rf 0.01696 --max-weight 0.25 --output ./data
 ```
 
 自定义标的（以 3 只股票为例）：
@@ -75,6 +82,13 @@ print("Performance:", performance)  # 包含 expected_annual_return / annual_vol
 
 ```bash
 streamlit run streamlit_app.py
+```
+
+### Docker 运行（可选）
+
+```bash
+docker build -t maxsharpe:latest .
+docker run --rm -v "$PWD/data:/app/data" maxsharpe:latest python portfolio.py --market CN --years 5 --output /app/data
 ```
 
 ## ⚙️ 命令行参数
@@ -116,6 +130,17 @@ streamlit run streamlit_app.py
 - 交易日：基于上交所 (XSHG) 日历对齐（pandas-market-calendars）
 - 优化器：使用 PyPortfolioOpt 计算最大夏普比率，可设置单资产权重上限
 
+### 架构示意
+
+```mermaid
+flowchart LR
+  A[CLI/Streamlit\nportfolio.py / streamlit_app.py] --> B[Core\nmaxsharpe.core]
+  B --> C[DataFetcher\nmaxsharpe.data]
+  B --> D[Optimizer\nmaxsharpe.optimizer]
+  B --> E[Utils\nmaxsharpe.utils]
+  C -->|akshare| F[(Market Data)]
+```
+
 ## ❓常见问题（FAQ）
 
 - ImportError: 未安装依赖
@@ -129,6 +154,15 @@ streamlit run streamlit_app.py
 
 欢迎 PR！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解开发流程与规范。
 
+### 本地开发速查（可选）
+
+```bash
+pip install -r requirements.txt
+pip install -e .[dev]
+black . && isort . && flake8 .
+pytest -q
+```
+
 ## 📄 许可证
 
 MIT License，详情见 [LICENSE](LICENSE)。
@@ -137,3 +171,13 @@ MIT License，详情见 [LICENSE](LICENSE)。
 
 - 问题与建议：提 Issue 到本仓库
 - 如果本项目对你有帮助，欢迎点个 Star ⭐
+
+### 示例
+
+更多示例见 `examples/`：
+
+```bash
+python examples/basic_usage.py
+python examples/custom_portfolio.py --tickers 600519,000858,601318 --years 3 --rf 0.02 --max-weight 0.25
+python examples/visualization.py --tickers 600519,000858,601318 --years 3
+```

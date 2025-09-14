@@ -33,6 +33,7 @@ git clone https://github.com/henrywen98/investment_portfolio_optimizer.git
 cd investment_portfolio_optimizer
 python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -e .  # optional: install CLI entry 'maxsharpe'
 ```
 
 ### CLI Usage
@@ -46,6 +47,12 @@ python portfolio.py \\
   --rf 0.01696 \\
   --max-weight 0.25 \\
   --output ./data
+```
+
+With the installed entry point (after `pip install -e .`):
+
+```bash
+maxsharpe --market CN --years 5 --rf 0.01696 --max-weight 0.25 --output ./data
 ```
 
 Custom tickers (example with 3 stocks):
@@ -73,6 +80,13 @@ print("Performance:", performance)  # includes expected_annual_return / annual_v
 
 ```bash
 streamlit run streamlit_app.py
+```
+
+### Docker (optional)
+
+```bash
+docker build -t maxsharpe:latest .
+docker run --rm -v "$PWD/data:/app/data" maxsharpe:latest python portfolio.py --market CN --years 5 --output /app/data
 ```
 
 ## CLI Arguments
@@ -105,6 +119,17 @@ Generated under the `--output` directory:
 - Calendar: Shanghai Stock Exchange (XSHG) via pandas-market-calendars
 - Optimizer: PyPortfolioOpt Max Sharpe with configurable max weight
 
+### Architecture
+
+```mermaid
+flowchart LR
+  A[CLI/Streamlit\nportfolio.py / streamlit_app.py] --> B[Core\nmaxsharpe.core]
+  B --> C[DataFetcher\nmaxsharpe.data]
+  B --> D[Optimizer\nmaxsharpe.optimizer]
+  B --> E[Utils\nmaxsharpe.utils]
+  C -->|akshare| F[(Market Data)]
+```
+
 ## FAQ
 
 - ImportError: missing dependencies
@@ -118,6 +143,15 @@ Generated under the `--output` directory:
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+### Local dev quickstart (optional)
+
+```bash
+pip install -r requirements.txt
+pip install -e .[dev]
+black . && isort . && flake8 .
+pytest -q
+```
+
 ## License
 
 MIT License. See [LICENSE](LICENSE).
@@ -126,3 +160,13 @@ MIT License. See [LICENSE](LICENSE).
 
 - Questions & suggestions: open an Issue
 - If you find this useful, please leave a Star ⭐
+
+### Examples
+
+See `examples/` for runnable scripts:
+
+```bash
+python examples/basic_usage.py
+python examples/custom_portfolio.py --tickers 600519,000858,601318 --years 3 --rf 0.02 --max-weight 0.25
+python examples/visualization.py --tickers 600519,000858,601318 --years 3
+```
