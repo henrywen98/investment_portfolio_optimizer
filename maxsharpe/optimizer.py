@@ -70,16 +70,53 @@ class MaxSharpeOptimizer:
         """
         try:
             from pypfopt.efficient_frontier import EfficientFrontier
-            from pypfopt.expected_returns import mean_historical_return
-            from pypfopt.risk_models import CovarianceShrinkage
         except ImportError as e:
             raise ImportError("需要安装 PyPortfolioOpt：pip install PyPortfolioOpt") from e
         
-        # 计算预期收益率
-        mu = mean_historical_return(returns)
+        # 额外验证返回数据
+        if returns.isnull().any().any():
+            raise ValueError("收益率数据中包含NaN值")
         
-        # 计算协方差矩阵（使用收缩估计器提高稳定性）
-        S = CovarianceShrinkage(returns).ledoit_wolf()
+        if (returns == float('inf')).any().any() or (returns == -float('inf')).any().any():
+            raise ValueError("收益率数据中包含无穷大值")
+            
+        if len(returns) < 30:
+            raise ValueError("收益率数据点不足，至少需要30个数据点")
+        
+        # 使用自定义的方法计算预期收益率，避免PyPortfolioOpt的NaN问题
+        import numpy as np
+        
+        # 计算年化预期收益率 (使用简单均值方法)
+        daily_returns = returns.mean()
+        mu = daily_returns * 252  # 年化
+        
+        # 再次验证预期收益率
+        if mu.isnull().any():
+            # 如果仍有NaN，用0替换
+            logger.warning("预期收益率计算包含NaN值，使用0替换")
+            mu = mu.fillna(0)
+        
+        # 计算协方差矩阵 (使用更稳健的方法)
+        try:
+            # 使用pandas的cov方法，更稳定
+            S = returns.cov() * 252  # 年化协方差矩阵
+            
+            # 验证协方差矩阵
+            if pd.DataFrame(S).isnull().any().any():
+                raise ValueError("协方差矩阵包含NaN值")
+                
+            # 检查协方差矩阵是否为正定
+            eigenvals = np.linalg.eigvals(S.values)
+            if (eigenvals <= 0).any():
+                logger.warning("协方差矩阵不是正定的，进行正则化")
+                # 添加一个小的正则化项到对角线
+                S = S + np.eye(len(S)) * 1e-6
+                
+        except Exception as e:
+            logger.error(f"协方差矩阵计算失败: {e}")
+            # 使用对角协方差矩阵作为备选
+            variances = returns.var() * 252
+            S = pd.DataFrame(np.diag(variances), index=returns.columns, columns=returns.columns)
         
         # 创建有效前沿
         ef = EfficientFrontier(mu, S)

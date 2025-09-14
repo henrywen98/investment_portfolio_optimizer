@@ -153,7 +153,7 @@ streamlit run streamlit_app.py
 
 ### 📊 数据源
 - **🇨🇳 中国A股**: 使用 [akshare](https://akshare.akfamily.xyz/) 获取数据，支持前复权、后复权调整
-- **🇺🇸 美股**: 使用 [yfinance](https://github.com/ranaroussi/yfinance) 获取数据，自动价格调整
+- **🇺🇸 美股**: 首选使用 [yfinance](https://github.com/ranaroussi/yfinance) 获取数据；若遇到 Yahoo Finance 429 等速率限制或网络异常，自动回退至 [Stooq（pandas-datareader）](https://pydata.github.io/pandas-datareader/stable/readers/stooq.html) 以保证可用性
 
 ### 📅 交易日历
 - **🇨🇳 中国A股**: 基于上海证券交易所 (XSHG) 交易日历
