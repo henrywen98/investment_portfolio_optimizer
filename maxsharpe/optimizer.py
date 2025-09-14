@@ -49,6 +49,9 @@ class MaxSharpeOptimizer:
         
         # 计算收益率
         returns = calculate_returns(prices)
+        # 清理潜在的无穷值/缺失值（极端行情或数据源异常可能出现）
+        returns.replace([np.inf, -np.inf], np.nan, inplace=True)
+        returns.dropna(how="any", inplace=True)
         
         if returns.empty:
             raise ValueError("无法计算收益率")
@@ -75,11 +78,12 @@ class MaxSharpeOptimizer:
         except ImportError as e:
             raise ImportError("需要安装 PyPortfolioOpt：pip install PyPortfolioOpt") from e
         
-        # 计算预期收益率
-        mu = mean_historical_return(returns)
-        
-        # 计算协方差矩阵（使用收缩估计器提高稳定性）
-        S = CovarianceShrinkage(returns).ledoit_wolf()
+        # 计算预期收益率与协方差矩阵
+        # 注意：此处传入的是“收益率”数据，因此需要显式指定 returns_data=True
+        mu = mean_historical_return(returns, returns_data=True)
+
+        # 使用收缩估计器提高稳定性，并指明输入为收益率
+        S = CovarianceShrinkage(returns, returns_data=True).ledoit_wolf()
         
         # 创建有效前沿
         ef = EfficientFrontier(mu, S)
