@@ -5,6 +5,8 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
+[English README](README_EN.md) | 中文说明
+
 一个用于下载股票收盘价并构建“最大夏普比率”投资组合的 Python 工具（当前仅支持中国 A 股）。
 
 > ⚠️ 声明：本项目仅用于教育与研究，不构成任何投资建议。
